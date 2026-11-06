@@ -1,6 +1,6 @@
 # Forge
 
-A system monitor for Linux that puts Windows Task Manager's pages and btop's density in one window. Rust and Tauri 2; the window uses the system WebKitGTK, so the release binary is about 4 MB.
+A vibe coded system monitor for Linux that puts Windows Task Manager's pages and btop's density in one window. Rust and Tauri 2; the window uses the system WebKitGTK, so the release binary is about 4 MB.
 
 ![Forge overview](docs/overview.png)
 
