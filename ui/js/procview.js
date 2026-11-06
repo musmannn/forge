@@ -55,7 +55,7 @@ export function columns(opts = {}) {
   const ncpu = () => store.snap?.ncpu || 1;
   const cols = [
     { key: "name", label: "Name", width: "minmax(240px, 2.4fr)", render: (p, r) => nameCell(p, r?.agg), sortVal: (p) => (p.name || "").toLowerCase(), titleOf: (p) => p.cmd || p.name },
-    { key: "status", label: "Status", width: "minmax(110px, 0.9fr)", render: (p) => statusCell(p), sortVal: (p) => (p.state === "T" ? 2 : 0) + (p.policy === 5 ? 1 : 0) },
+    { key: "status", label: "Status", width: "minmax(72px, 0.5fr)", render: (p) => statusCell(p), sortVal: (p) => (p.state === "T" ? 2 : 0) + (p.policy === 5 ? 1 : 0) },
     { key: "pid", label: "PID", width: "80px", num: true, render: (p) => (p.agg ? "" : String(p.pid)), sortVal: (p) => p.pid },
     {
       key: "cpu", label: "CPU", width: "86px", num: true,
@@ -76,7 +76,7 @@ export function columns(opts = {}) {
       groupVal: (r) => f.bytes(r.sum?.mem ?? 0),
     },
     {
-      key: "disk", label: "Disk", width: "116px", num: true,
+      key: "disk", label: "Disk", width: "132px", num: true,
       render: (p) => (p.read_bps + p.write_bps > 0 ? f.rate(p.read_bps + p.write_bps) : "0\u00a0B/s"),
       sortVal: (p) => p.read_bps + p.write_bps,
       heat: (p) => (p.read_bps + p.write_bps) / (40 * 1024 * 1024),

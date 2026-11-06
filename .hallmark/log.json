@@ -1,0 +1,33 @@
+[
+ {
+  "scope": "app",
+  "shape": "app screen",
+  "theme": "console",
+  "axes": "dark/grotesk-sans/chromatic-amber",
+  "hero": "none (app)",
+  "nav": "sidebar of ten destinations over a top bar",
+  "footer": "none (app)",
+  "imagery": "product",
+  "photos": 0,
+  "entry": "overview",
+  "fingerprint": "app-sidebar-panels-tables",
+  "sections": [
+   "overview",
+   "processes",
+   "performance",
+   "history",
+   "startup",
+   "users",
+   "details",
+   "services",
+   "connections",
+   "system",
+   "settings"
+  ],
+  "signature": "the core strip: one live column per logical core under the CPU trace, amber marking where the picked process last ran",
+  "waived": [],
+  "prompt": "Linux system monitor merging btop and Windows Task Manager, Tauri",
+  "date": "2026-11-06",
+  "mode": "build"
+ }
+]

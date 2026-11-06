@@ -1,0 +1,15 @@
+{
+  "name": "forge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Linux system monitor: Task Manager pages with btop density",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "selftest": "cd src-tauri && cargo build && FORGE_SELFTEST=1 ./target/debug/forge",
+    "preview": "python3 -m http.server 8765 --directory ui"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

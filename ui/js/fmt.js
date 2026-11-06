@@ -89,3 +89,8 @@ export function priorityName(nice, policy) {
   if (nice < 10) return "Below normal";
   return "Low";
 }
+
+// systemd escapes characters in unit names as \xNN
+export function unit(u) {
+  return (u || "").replace(/\\x([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}

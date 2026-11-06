@@ -31,7 +31,7 @@ const ALL = [
   { key: "start_s", label: "Started", width: "120px", num: true, render: (p) => f.since(p.start_s) },
   { key: "kind", label: "Kind", width: "110px", render: (p) => ({ app: "App", background: "Background", system: "System", kernel: "Kernel" }[p.kind]) },
   { key: "app", label: "App", width: "150px", render: (p) => p.app || "" },
-  { key: "unit", label: "Unit", width: "200px", mono: true, render: (p) => p.unit || "" },
+  { key: "unit", label: "Unit", width: "200px", mono: true, render: (p) => f.unit(p.unit) },
   { key: "exe", label: "Program path", width: "260px", mono: true, render: (p) => h("span", { class: "t muted" }, p.exe), titleOf: (p) => p.exe },
   { key: "cmd", label: "Command line", width: "minmax(260px, 3fr)", mono: true, render: (p) => h("span", { class: "t muted" }, p.cmd), titleOf: (p) => p.cmd },
 ];

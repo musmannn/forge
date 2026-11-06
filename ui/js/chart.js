@@ -125,12 +125,30 @@ export function bars(canvas, values, opts = {}) {
   const gap = opts.gap ?? 2;
   const bw = Math.max(1, (w - gap * (n - 1)) / n);
   const max = opts.max || 100;
+  ctx.strokeStyle = palette.rule;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const g of [0.25, 0.5, 0.75]) { const y = Math.round(h * g) + 0.5; ctx.moveTo(0, y); ctx.lineTo(w, y); }
+  ctx.stroke();
   values.forEach((v, i) => {
     const r = Math.min(1, Math.max(0, v / max));
     const bh = Math.max(1, r * h);
+    const x = i * (bw + gap);
     ctx.fillStyle = r > 0.9 ? palette.bad : palette.cool;
-    ctx.globalAlpha = 0.35 + 0.65 * r;
-    ctx.fillRect(i * (bw + gap), h - bh, bw, bh);
+    ctx.globalAlpha = 0.45 + 0.55 * r;
+    ctx.fillRect(x, h - bh, bw, bh);
+    ctx.globalAlpha = 1;
+    // peak over the last few seconds, held like a meter
+    const pk = opts.peaks?.[i];
+    if (pk != null && pk > v) {
+      ctx.fillStyle = palette.muted;
+      ctx.fillRect(x, Math.round(h - Math.min(1, pk / max) * h), bw, 2);
+    }
+    // the core the picked process last ran on
+    if (opts.mark === i) {
+      ctx.fillStyle = palette.accent;
+      ctx.fillRect(x, h - 4, bw, 4);
+    }
   });
   ctx.globalAlpha = 1;
 }

@@ -20,3 +20,43 @@
   --shadow-card: none;
   --tracking-display: -0.03em; --display-weight: 500;
 }
+
+/* Forge app tokens and the two extra Console colourways (paper, amber-room), chosen in Settings */
+:root {
+  --sidebar-w: 216px;
+  --sidebar-w-collapsed: 60px;
+  --topbar-h: 56px;
+  --row-h: 32px;
+  --control-h: 34px;
+  --drawer-w: 440px;
+  --trace-fill: 0.22;
+  --color-overlay: oklch(10% 0.01 250 / 0.6);
+  --color-scrim-soft: oklch(10% 0.01 250 / 0.35);
+  --color-track: oklch(25% 0.01 250);
+  --shadow-menu: 0 1px 2px oklch(5% 0.01 250 / 0.3);
+}
+
+[data-colourway="paper"] {
+  color-scheme: light;
+  --color-paper: oklch(96.5% 0.006 85); --color-paper-2: oklch(99% 0.004 85); --color-paper-3: oklch(93% 0.008 85);
+  --color-ink: oklch(19% 0.010 60); --color-ink-2: oklch(30% 0.010 60); --color-muted: oklch(45% 0.012 60);
+  --color-rule: oklch(87% 0.008 70); --color-rule-2: oklch(76% 0.01 70);
+  --color-accent: oklch(54% 0.14 70); --color-accent-ink: oklch(99% 0.006 85); --color-accent-soft: oklch(92% 0.05 80); --color-focus: oklch(54% 0.16 70);
+  --color-cool: oklch(52% 0.14 250); --color-cool-soft: oklch(92% 0.035 250);
+  --color-ok: oklch(50% 0.13 150); --color-ok-soft: oklch(93% 0.035 150); --color-bad: oklch(53% 0.18 25); --color-bad-soft: oklch(93% 0.035 25);
+  --color-overlay: oklch(30% 0.01 60 / 0.35);
+  --color-scrim-soft: oklch(30% 0.01 60 / 0.15);
+  --color-track: oklch(90% 0.008 70);
+  --trace-fill: 0.16;
+}
+
+[data-colourway="amber-room"] {
+  --color-paper: oklch(15% 0.022 70); --color-paper-2: oklch(19% 0.024 70); --color-paper-3: oklch(12% 0.02 70);
+  --color-ink: oklch(95% 0.012 85); --color-ink-2: oklch(84% 0.016 85); --color-muted: oklch(73% 0.02 80);
+  --color-rule: oklch(30% 0.025 70); --color-rule-2: oklch(42% 0.03 70);
+  --color-accent: oklch(82% 0.15 82); --color-accent-ink: oklch(18% 0.04 75); --color-accent-soft: oklch(30% 0.06 80); --color-focus: oklch(82% 0.15 82);
+  --color-cool: oklch(82% 0.08 200); --color-cool-soft: oklch(28% 0.04 200);
+  --color-overlay: oklch(8% 0.02 70 / 0.6);
+  --color-scrim-soft: oklch(8% 0.02 70 / 0.35);
+  --color-track: oklch(24% 0.025 70);
+}

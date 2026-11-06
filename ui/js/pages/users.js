@@ -16,7 +16,7 @@ export default function usersPage() {
     { key: "status", label: "Status", width: "160px", render: (d, r) => (r?.agg ? sessionState(d.name) : f.STATE[d.state] || "") },
     { key: "cpu", label: "CPU", width: "90px", num: true, render: (d) => f.pct(cpuOf(d), 1), sortVal: (d) => d.cpu, heat: (d) => d.cpu / 60, total: () => f.pct(store.snap?.cpu.total || 0) },
     { key: "mem", label: "Memory", width: "110px", num: true, render: (d) => f.bytes(d.mem_private ?? d.mem), sortVal: (d) => d.mem_private ?? d.mem, heat: (d) => (d.mem_private ?? d.mem) / (store.snap?.mem.total || 1) * 3 },
-    { key: "disk", label: "Disk", width: "116px", num: true, render: (d) => f.rate(d.read_bps + d.write_bps), sortVal: (d) => d.read_bps + d.write_bps },
+    { key: "disk", label: "Disk", width: "132px", num: true, render: (d) => f.rate(d.read_bps + d.write_bps), sortVal: (d) => d.read_bps + d.write_bps },
     { key: "gpu", label: "GPU", width: "80px", num: true, render: (d) => (d.gpu != null ? f.pct(d.gpu, 1) : ""), sortVal: (d) => d.gpu ?? -1 },
   ];
 

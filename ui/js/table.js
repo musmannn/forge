@@ -27,6 +27,12 @@ export class Table {
     this.el.append(this.head, this.body);
     this.el.addEventListener("scroll", () => this.paint(), { passive: true });
     this.el.addEventListener("keydown", (e) => this.key(e));
+    // arriving by keyboard with nothing selected: start on the first real row
+    this.el.addEventListener("focus", () => {
+      if (this.sel != null && this.rows.some((r) => r.key === this.sel)) return;
+      const first = this.rows.find((r) => !r.group);
+      if (first) this.select(first.key);
+    });
     this.ro = new ResizeObserver(() => this.paint());
     this.ro.observe(this.el);
     this.buildHead();

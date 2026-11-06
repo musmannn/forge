@@ -2,7 +2,7 @@
 
 import { store, ring, procRing, windowSamples, cpuOf } from "../store.js";
 import { h, icon } from "../ui.js";
-import { trace, niceMax } from "../chart.js";
+import { trace, bars, niceMax } from "../chart.js";
 import { Table } from "../table.js";
 import { nameCell, treeRows, flatRows, visibleProcs, emptyFilter } from "../procview.js";
 import { processMenu, endTask, processKey } from "../procactions.js";
@@ -23,13 +23,14 @@ export default function overviewPage() {
     refs.cpuLegend = h("div", { class: "legend" });
     const info = store.cpuInfo || {};
     const pset = new Set(info.perf_cores || []), eset = new Set(info.eff_cores || []);
-    coreEls = snap.cpu.cores.map((_, i) => {
-      const c = cv(`Logical processor ${i}`);
-      const num = h("span", { class: "num" });
-      const kind = pset.has(i) ? " P" : eset.has(i) ? " E" : "";
-      const row = h("div", { class: `core${pset.has(i) ? " is-p" : ""}` }, h("span", { class: "lbl" }, `cpu${i}${kind}`), h("div", { class: "trace" }, c), num);
-      return { c, num, row };
-    });
+    const n = snap.cpu.cores.length;
+    refs.coreCanvas = h("canvas", { role: "img", "aria-label": "Use of each logical processor now, with its recent peak; amber marks where the picked process last ran" });
+    refs.coreNums = snap.cpu.cores.map(() => h("span", { class: "num" }));
+    coreEls = snap.cpu.cores.map((_, i) => h("span", { class: `core-lbl${pset.has(i) ? " is-p" : ""}` }, `${i}${pset.has(i) ? "P" : eset.has(i) ? "E" : ""}`));
+    refs.coreStrip = h("div", { class: "core-strip", style: { "--n": n } },
+      h("div", { class: "trace core-bars" }, refs.coreCanvas),
+      h("div", { class: "core-row" }, refs.coreNums),
+      h("div", { class: "core-row" }, coreEls));
     refs.coreTitle = h("span", { class: "meta" });
     return h("section", { class: "panel ov-cpu", "aria-label": "Processor" },
       h("div", { class: "panel-head" }, h("h2", null, "Processor"), h("span", { class: "meta" }, info.model || "")),
@@ -37,7 +38,7 @@ export default function overviewPage() {
       cpuTrace,
       refs.cpuFacts,
       h("div", { class: "panel-head" }, h("h2", null, "Cores"), refs.coreTitle),
-      h("div", { class: "cores" }, coreEls.map((c) => c.row)));
+      refs.coreStrip);
   }
 
   function buildMem() {
@@ -95,7 +96,7 @@ export default function overviewPage() {
       sort: { key: "cpu", dir: -1 },
       empty: emptyFilter,
       cols: [
-        { key: "pid", label: "PID", width: "76px", num: true, render: (p) => String(p.pid), sortVal: (p) => p.pid },
+        { key: "pid", label: "PID", width: "88px", num: true, render: (p) => String(p.pid), sortVal: (p) => p.pid },
         { key: "name", label: "Program", width: "minmax(180px, 1.4fr)", render: (p) => nameCell(p), sortVal: (p) => p.name.toLowerCase() },
         { key: "cmd", label: "Command", width: "minmax(200px, 3fr)", mono: true, render: (p) => h("span", { class: "t muted" }, p.cmd || `[${p.name}]`), titleOf: (p) => p.cmd },
         { key: "threads", label: "Threads", width: "76px", num: true, render: (p) => String(p.threads) },
@@ -135,8 +136,8 @@ export default function overviewPage() {
         buildCpu(snap),
         buildMem(),
         buildSensors(),
-        h("div", { class: "ov-row2" }, buildNet(), buildDisk(), buildGpu()),
-        buildProcs()));
+        buildProcs(),
+        h("div", { class: "ov-row2" }, buildNet(), buildDisk(), buildGpu())));
     built = true;
   }
 
@@ -178,11 +179,11 @@ export default function overviewPage() {
         ["Context switches", `${f.int(c.ctxt_per_s)}/s`],
       ].map(([k, v]) => h("div", null, h("dt", null, k), h("dd", null, v))),
     );
-    coreEls.forEach((el, i) => {
-      trace(el.c, [{ data: ring(`core.${i}`).last(Math.min(n, 60)), colour: "cool", width: 1 }], { samples: Math.min(n, 60), max: 100, grid: 0 });
-      el.num.textContent = f.pct(c.cores[i] ?? 0);
-    });
-    refs.coreTitle.textContent = c.core_temps.length ? `core temperatures ${c.core_temps.map((t) => Math.round(t)).join(" ")} °C` : `${c.cores.length} logical processors`;
+    const peakN = 10;
+    const picked = store.selected != null ? store.procIndex.get(store.selected) : null;
+    bars(refs.coreCanvas, c.cores, { max: 100, gap: 4, peaks: c.cores.map((_, i) => ring(`core.${i}`).max(peakN)), mark: picked ? picked.last_cpu : null });
+    refs.coreNums.forEach((el, i) => (el.textContent = f.pct(c.cores[i] ?? 0)));
+    refs.coreTitle.replaceChildren(...(c.core_temps.length ? ["Core temperatures ", h("span", { class: "num" }, `${c.core_temps.map((t) => Math.round(t)).join(" ")} °C`)] : [`${c.cores.length} logical processors`]));
 
     // memory
     const m = s.mem;
@@ -216,7 +217,7 @@ export default function overviewPage() {
     refs.sensorRows.replaceChildren(
       ...temps.map((t) => memRow(t.name, f.temp(t.c), t.c / (t.crit || 100), t.c >= (t.high || t.crit || 95) - 2)),
       ...s.fans.filter((x) => x.rpm > 0).map((x) => h("div", { class: "mini-row" }, h("span", { class: "lbl" }, x.label), h("span"), h("span", { class: "num" }, `${x.rpm} rpm`))),
-      s.psi ? h("div", { class: "mini-row", title: "Share of the last 10 seconds that some task waited on this resource (pressure stall information)" }, h("span", { class: "lbl" }, "Stalled on"), h("span", { class: "wide measured" }, `cpu ${s.psi.cpu_some.toFixed(1)}%  mem ${s.psi.mem_some.toFixed(1)}%  io ${s.psi.io_some.toFixed(1)}%`)) : null,
+      s.psi ? h("div", { class: "mini-row", title: "Share of the last 10 seconds that some task waited on this resource (pressure stall information)" }, h("span", { class: "lbl" }, "Stalled on"), h("span", { class: "wide" }, "Processor ", h("span", { class: "num" }, f.pct(s.psi.cpu_some, 1)), "  Memory ", h("span", { class: "num" }, f.pct(s.psi.mem_some, 1)), "  Disk ", h("span", { class: "num" }, f.pct(s.psi.io_some, 1)))) : null,
     );
 
     // network

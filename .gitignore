@@ -1,5 +1,5 @@
-src-tauri/target/
-src-tauri/gen/
-node_modules/
 .devshim/
+node_modules/
+src-tauri/gen/
+src-tauri/target/
 /tmp/
