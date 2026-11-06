@@ -1,1 +1,51 @@
-<!doctype html><title>Forge</title>
+<!doctype html>
+<html lang="en" data-colourway="graphite">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forge, a system monitor for Linux</title>
+  <meta name="description" content="Every process, core, disk, socket and service on this Linux machine, live, with the controls to act on them.">
+  <link rel="preload" href="fonts/host-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/atkinson-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="styles/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <a class="wordmark" href="#overview" aria-label="Forge, go to the overview"><span>Forge</span></a>
+      <nav class="nav" aria-label="Pages">
+        <a class="nav-link" href="#overview" data-page="overview" data-icon="overview" title="Overview (1)"><span>Overview</span></a>
+        <a class="nav-link" href="#processes" data-page="processes" data-icon="processes" title="Processes (2)"><span>Processes</span></a>
+        <a class="nav-link" href="#performance" data-page="performance" data-icon="performance" title="Performance (3)"><span>Performance</span></a>
+        <a class="nav-link" href="#history" data-page="history" data-icon="history" title="App history (4)"><span>App history</span></a>
+        <a class="nav-link" href="#startup" data-page="startup" data-icon="startup" title="Startup apps (5)"><span>Startup apps</span></a>
+        <a class="nav-link" href="#users" data-page="users" data-icon="users" title="Users (6)"><span>Users</span></a>
+        <a class="nav-link" href="#details" data-page="details" data-icon="details" title="Details (7)"><span>Details</span></a>
+        <a class="nav-link" href="#services" data-page="services" data-icon="services" title="Services (8)"><span>Services</span></a>
+        <a class="nav-link" href="#connections" data-page="connections" data-icon="connections" title="Connections (9)"><span>Connections</span></a>
+        <a class="nav-link" href="#system" data-page="system" data-icon="system" title="System (0)"><span>System</span></a>
+        <a class="nav-link" href="#settings" data-page="settings" data-icon="settings" title="Settings"><span>Settings</span></a>
+      </nav>
+      <div class="side-foot" aria-label="Live totals"></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <h1 id="page-title">Overview</h1>
+        <span id="paused-flag" class="paused-flag" role="status" hidden>Paused</span>
+        <span class="spacer"></span>
+        <div class="search">
+          <input id="filter" class="input" type="search" name="filter" autocomplete="off" spellcheck="false" placeholder="Filter processes" aria-label="Filter">
+        </div>
+        <button id="pause" type="button" class="btn btn--icon" aria-pressed="false" aria-label="Pause updates" title="Pause updates (p)"></button>
+        <button id="palette-btn" type="button" class="btn hide-narrow" title="Command palette (Ctrl K)">Commands</button>
+        <button id="run-btn" type="button" class="btn btn--primary" title="Run new task (Ctrl N)">Run task</button>
+      </header>
+      <main id="page" class="page">
+        <noscript><div class="state"><h3>Forge needs JavaScript</h3><p>Its screens are drawn by scripts inside the app window.</p></div></noscript>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
