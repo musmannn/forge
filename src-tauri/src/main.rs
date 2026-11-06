@@ -20,13 +20,23 @@ struct AppState {
     interval: Arc<AtomicU64>,
     paused: Arc<AtomicBool>,
     kick: Arc<AtomicBool>,
+    kernel: Arc<AtomicBool>,
+    resync: Arc<AtomicBool>,
 }
 
 type R<T> = Result<T, String>;
 
 #[tauri::command]
 fn get_snapshot(s: tauri::State<AppState>) -> Option<Snapshot> {
+    // the UI is starting over: send everything again on the next tick too
+    s.resync.store(true, Ordering::Relaxed);
     s.last.lock().unwrap().as_ref().map(|a| (**a).clone())
+}
+
+#[tauri::command]
+fn set_kernel_threads(s: tauri::State<AppState>, on: bool) {
+    s.kernel.store(on, Ordering::Relaxed);
+    s.resync.store(true, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -216,7 +226,7 @@ fn export_snapshot(s: tauri::State<'_, AppState>, format: String) -> R<String> {
         let mut out = String::from("pid,ppid,name,user,state,cpu_pct,memory_bytes,private_bytes,swap_bytes,threads,nice,disk_read_bps,disk_write_bps,gpu_pct,kind,app,container,command\n");
         for p in &snap.procs {
             out.push_str(&format!(
-                "{},{},{},{},{},{:.2},{},{},{},{},{},{:.0},{:.0},{},{},{},{},{}\n",
+                "{},{},{},{},{},{:.2},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                 p.pid,
                 p.ppid,
                 csv_field(&p.name),
@@ -304,8 +314,11 @@ fn main() {
         interval: Arc::new(AtomicU64::new(1000)),
         paused: Arc::new(AtomicBool::new(false)),
         kick: Arc::new(AtomicBool::new(false)),
+        kernel: Arc::new(AtomicBool::new(false)),
+        resync: Arc::new(AtomicBool::new(false)),
     };
     let (last, interval, paused, kick) = (state.last.clone(), state.interval.clone(), state.paused.clone(), state.kick.clone());
+    let (kernel, resync) = (state.kernel.clone(), state.resync.clone());
     let saver = sampler.clone();
 
     tauri::Builder::default()
@@ -314,18 +327,38 @@ fn main() {
             let handle = app.handle().clone();
             std::thread::Builder::new()
                 .name("sampler".into())
-                .spawn(move || loop {
+                .spawn(move || {
+                    let mut sent: std::collections::HashSet<(i32, u64)> = Default::default();
+                    loop {
                     let ms = interval.load(Ordering::Relaxed);
                     if !paused.load(Ordering::Relaxed) || kick.load(Ordering::Relaxed) {
                         kick.store(false, Ordering::Relaxed);
                         let snap = Arc::new(sampler.lock().unwrap().sample(ms));
-                        let _ = handle.emit("snapshot", &*snap);
+                        if resync.swap(false, Ordering::Relaxed) {
+                            sent.clear();
+                        }
+                        // what goes over IPC: no kernel threads unless asked, and
+                        // static fields only the first time a process is seen
+                        let with_kernel = kernel.load(Ordering::Relaxed);
+                        let mut wire = Snapshot { procs: Vec::new(), ..(*snap).clone() };
+                        let mut next_sent = std::collections::HashSet::with_capacity(snap.procs.len());
+                        for p in &snap.procs {
+                            if p.kind == "kernel" && !with_kernel {
+                                continue;
+                            }
+                            let key = (p.pid, p.start_s);
+                            wire.procs.push(if sent.contains(&key) { p.slim() } else { p.clone() });
+                            next_sent.insert(key);
+                        }
+                        sent = next_sent;
+                        let _ = handle.emit("snapshot", &wire);
                         *last.lock().unwrap() = Some(snap);
                     }
                     let mut waited = 0;
                     while waited < ms && !kick.load(Ordering::Relaxed) {
                         std::thread::sleep(Duration::from_millis(50));
                         waited += 50;
+                    }
                     }
                 })?;
             if let Some(w) = app.get_webview_window("main") {
@@ -335,6 +368,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            set_kernel_threads,
             set_interval,
             set_paused,
             refresh_now,

@@ -1,5 +1,5 @@
 import { invoke, listen, isTauri, errText } from "./api.js";
-import { store, ingest, on, saveSettings, ring, windowSamples } from "./store.js";
+import { store, ingest, on, saveSettings, ring, windowSamples, onMissingStatics } from "./store.js";
 import { h, icon, logo, dialog, toast, anyDialogOpen, closeMenu } from "./ui.js";
 import { readPalette, trace, niceMax } from "./chart.js";
 import { hooks, act } from "./procactions.js";
@@ -344,11 +344,15 @@ async function start() {
       try { page?.update?.(); } catch (err) { console.error(err); }
       drawerUpdate();
     } else if (kind === "settings") {
+      invoke("set_kernel_threads", { on: store.settings.showKernel }).catch(() => {});
       page?.settings?.();
     }
   });
 
   invoke("cpu_info").then((c) => { store.cpuInfo = c; }).catch(() => {});
+  invoke("set_kernel_threads", { on: store.settings.showKernel }).catch(() => {});
+  let resyncing = false;
+  onMissingStatics(() => { if (resyncing) return; resyncing = true; invoke("get_snapshot").finally(() => (resyncing = false)); });
   try {
     const s = await invoke("get_snapshot");
     if (s) ingest(s);

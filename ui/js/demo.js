@@ -3,6 +3,7 @@
 
 const fx = await (await fetch(new URL("./demo-fixture.json", import.meta.url))).json();
 let snap = fx.snapshot;
+for (const p of snap.procs) p.full = true;
 let t = 0;
 const listeners = [];
 

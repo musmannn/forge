@@ -191,42 +191,59 @@ export class Table {
   }
 
   fill(el, r) {
-    const cells = [];
     if (r.group) {
-      const tw = h("button", { type: "button", class: "tw", "aria-expanded": String(!!r.group.expanded), "aria-label": r.group.expanded ? "Collapse" : "Expand", tabindex: "-1", onclick: () => this.onToggle?.(r) }, icon("chevron"));
-      cells.push(h("div", { class: "vt-td", role: "gridcell", style: { gridColumn: "1 / 2" } }, tw, h("span", { class: "t" }, r.group.label, " ", h("span", { class: "cnt" }, `(${r.group.count})`))));
+      const sig = `g|${r.group.label}|${r.group.count}|${r.group.expanded}|${this.cols.map((c) => (c.groupVal ? c.groupVal(r) : "")).join("|")}`;
+      if (el._sig === sig) return;
+      el._sig = sig;
+      el._cells = null;
+      const tw = h("button", { type: "button", class: "tw", "aria-expanded": String(!!r.group.expanded), "aria-label": r.group.expanded ? "Collapse" : "Expand", tabindex: "-1", onclick: () => this.onToggle?.(el._row) }, icon("chevron"));
+      const cells = [h("div", { class: "vt-td", role: "gridcell" }, tw, h("span", { class: "t" }, r.group.label, " ", h("span", { class: "cnt" }, `(${r.group.count})`)))];
       for (let i = 1; i < this.cols.length; i++) {
         const c = this.cols[i];
-        const v = c.groupVal ? c.groupVal(r) : "";
-        cells.push(h("div", { class: `vt-td${c.num ? " is-num" : ""}`, role: "gridcell" }, v));
+        cells.push(h("div", { class: `vt-td${c.num ? " is-num" : ""}`, role: "gridcell" }, c.groupVal ? c.groupVal(r) : ""));
       }
       el.replaceChildren(...cells);
       return;
     }
+    el._sig = null;
+    if (!el._cells || el._cells.length !== this.cols.length) {
+      el._cells = this.cols.map((c) => h("div", { class: `vt-td${c.num ? " is-num" : ""}${c.mono ? " is-mono" : ""}`, role: "gridcell" }));
+      el.replaceChildren(...el._cells);
+    }
     this.cols.forEach((c, ci) => {
-      const td = h("div", { class: `vt-td${c.num ? " is-num" : ""}${c.mono ? " is-mono" : ""}`, role: "gridcell" });
-      if (ci === 0 && (r.depth != null || r.kids != null)) {
-        if (r.depth) td.style.paddingLeft = `calc(var(--space-sm) + ${r.depth * 16}px)`;
-        if (r.kids) {
-          td.append(h("button", { type: "button", class: "tw", tabindex: "-1", "aria-expanded": String(!!r.expanded), "aria-label": r.expanded ? "Collapse" : "Expand", onclick: () => this.onToggle?.(r) }, icon("chevron")));
-        } else if (r.depth != null) td.append(h("span", { class: "tw-pad" }));
-      }
+      const td = el._cells[ci];
       const v = c.render ? c.render(r.data, r) : r.data[c.key];
-      if (v instanceof Node) td.append(v);
-      else if (Array.isArray(v)) td.append(...v.filter(Boolean));
-      else td.append(h("span", { class: "t" }, v ?? ""));
+      const tree = ci === 0 && (r.depth != null || r.kids != null) ? `${r.depth || 0}/${r.kids ? (r.expanded ? "o" : "c") : "-"}` : "";
+      const sig = tree + "|" + signature(v);
+      if (td._sig !== sig) {
+        td._sig = sig;
+        const kids = [];
+        if (tree) {
+          td.style.paddingLeft = r.depth ? `calc(var(--space-sm) + ${r.depth * 16}px)` : "";
+          if (r.kids) kids.push(h("button", { type: "button", class: "tw", tabindex: "-1", "aria-expanded": String(!!r.expanded), "aria-label": r.expanded ? "Collapse" : "Expand", onclick: () => this.onToggle?.(el._row) }, icon("chevron")));
+          else if (r.depth != null) kids.push(h("span", { class: "tw-pad" }));
+        }
+        if (v instanceof Node) kids.push(v);
+        else if (Array.isArray(v)) kids.push(...v.filter(Boolean));
+        else kids.push(h("span", { class: "t" }, v ?? ""));
+        td.replaceChildren(...kids);
+      }
       if (c.heat) {
-        const hv = c.heat(r.data);
-        if (hv > 0.01) {
-          td.classList.add("heat");
-          td.style.setProperty("--h", Math.min(1, hv).toFixed(3));
-          if (hv > 0.9) td.classList.add("is-hot");
+        const hv = Math.min(1, Math.max(0, c.heat(r.data) || 0));
+        const q = hv > 0.01 ? Math.round(hv * 50) / 50 : 0;
+        if (td._heat !== q) {
+          td._heat = q;
+          td.classList.toggle("heat", q > 0);
+          td.classList.toggle("is-hot", q > 0.9);
+          if (q > 0) td.style.setProperty("--h", String(q));
+          else td.style.removeProperty("--h");
         }
       }
-      if (c.titleOf) td.title = c.titleOf(r.data);
-      cells.push(td);
+      if (c.titleOf) {
+        const t = c.titleOf(r.data) || "";
+        if (td.title !== t) td.title = t;
+      }
     });
-    el.replaceChildren(...cells);
   }
 
   key(e) {
@@ -276,4 +293,11 @@ export class Table {
       }
     }
   }
+}
+
+function signature(v) {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.filter(Boolean).map(signature).join("\u0001");
+  if (v instanceof Node) return `${v.nodeName}:${v.className || ""}:${v.textContent}:${v.getAttribute?.("src")?.length || 0}`;
+  return String(v);
 }

@@ -143,8 +143,13 @@ pub struct ProcSnap {
     pub pid: i32,
     pub ppid: i32,
     pub name: String,
+    /// false when the static fields below were sent earlier and left out
+    pub full: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub cmd: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub exe: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub user: String,
     pub uid: u32,
     pub state: char,
@@ -156,22 +161,47 @@ pub struct ProcSnap {
     pub nice: i32,
     pub priority: i32,
     pub policy: u32,
-    pub read_bps: f64,
-    pub write_bps: f64,
+    pub read_bps: u64,
+    pub write_bps: u64,
     pub read_total: u64,
     pub write_total: u64,
     pub start_s: u64,
     pub cpu_time_s: f64,
     pub last_cpu: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu_mem: Option<u64>,
     pub kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub app: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub container: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
     pub tty: i32,
+}
+
+impl ProcSnap {
+    /// Drop the fields that never change for a process the UI already knows.
+    pub fn slim(&self) -> ProcSnap {
+        ProcSnap {
+            full: false,
+            cmd: String::new(),
+            exe: String::new(),
+            user: String::new(),
+            app: None,
+            app_id: None,
+            icon: None,
+            container: None,
+            unit: None,
+            ..self.clone()
+        }
+    }
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -504,8 +534,8 @@ impl Sampler {
                 ..Default::default()
             };
             if let Some(p) = prev {
-                d.read_bps = cur.rsec.saturating_sub(p.rsec) as f64 * 512.0 / dt;
-                d.write_bps = cur.wsec.saturating_sub(p.wsec) as f64 * 512.0 / dt;
+                d.read_bps = (cur.rsec.saturating_sub(p.rsec) as f64 * 512.0 / dt).round();
+                d.write_bps = (cur.wsec.saturating_sub(p.wsec) as f64 * 512.0 / dt).round();
                 d.active_pct = ((cur.ms_io.saturating_sub(p.ms_io)) as f64 / ms * 100.0).min(100.0) as f32;
                 let ios = (cur.reads + cur.writes).saturating_sub(p.reads + p.writes);
                 if ios > 0 {
@@ -548,8 +578,8 @@ impl Sampler {
                 ..Default::default()
             };
             if let Some((prx, ptx)) = self.prev_net.get(&name) {
-                n.rx_bps = rx.saturating_sub(*prx) as f64 / dt;
-                n.tx_bps = tx.saturating_sub(*ptx) as f64 / dt;
+                n.rx_bps = (rx.saturating_sub(*prx) as f64 / dt).round();
+                n.tx_bps = (tx.saturating_sub(*ptx) as f64 / dt).round();
             }
             self.prev_net.insert(name, (rx, tx));
             out.push(n);
@@ -597,7 +627,10 @@ impl Sampler {
             let mut swap = 0;
             let mut anon = 0;
             let mut shmem = 0;
-            if let Some(status) = read(format!("{base}/status")) {
+            // kernel threads own no memory and do no file IO of their own
+            let is_kernel = st.kind == "kernel";
+            if is_kernel {
+            } else if let Some(status) = read(format!("{base}/status")) {
                 for l in status.lines() {
                     let kb = || l.split_whitespace().nth(1).and_then(|x| x.parse::<u64>().ok()).unwrap_or(0) * 1024;
                     if l.starts_with("VmSwap:") {
@@ -610,7 +643,8 @@ impl Sampler {
                 }
             }
             let (mut rb, mut wb): (u64, u64) = (0, 0);
-            if let Some(io) = read(format!("{base}/io")) {
+            if is_kernel {
+            } else if let Some(io) = read(format!("{base}/io")) {
                 for l in io.lines() {
                     if let Some(v) = l.strip_prefix("read_bytes: ") {
                         rb = v.trim().parse().unwrap_or(0);
@@ -623,11 +657,11 @@ impl Sampler {
             let prev = self.prev_procs.get(&pid).filter(|p| p.start == start).copied();
             let (cpu, rbps, wbps) = match prev {
                 Some(p) => (
-                    (ticks.saturating_sub(p.ticks) as f64 / dt / jiffies_per_s * 100.0) as f32,
-                    rb.saturating_sub(p.rb) as f64 / dt,
-                    wb.saturating_sub(p.wb) as f64 / dt,
+                    ((ticks.saturating_sub(p.ticks) as f64 / dt / jiffies_per_s * 100.0) * 100.0).round() as f32 / 100.0,
+                    (rb.saturating_sub(p.rb) as f64 / dt) as u64,
+                    (wb.saturating_sub(p.wb) as f64 / dt) as u64,
                 ),
-                None => (0.0, 0.0, 0.0),
+                None => (0.0, 0, 0),
             };
             self.prev_procs.insert(pid, ProcPrev { start, ticks, rb, wb });
             alive.insert(pid);
@@ -636,6 +670,7 @@ impl Sampler {
                 pid,
                 ppid,
                 name: st.name,
+                full: true,
                 cmd: st.cmd,
                 exe: st.exe,
                 user: st.user,

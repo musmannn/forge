@@ -40,6 +40,8 @@ pub struct GpuSampler {
     prev_rc6: HashMap<String, u64>,
     prev_client: HashMap<(String, String, String), u64>,
     drm_pids: HashSet<i32>,
+    /// which descriptors of a process point at /dev/dri, found on the last full scan
+    drm_fds: HashMap<i32, Vec<String>>,
     nvidia_smi: bool,
 }
 
@@ -76,27 +78,37 @@ impl GpuSampler {
             prev_rc6: HashMap::new(),
             prev_client: HashMap::new(),
             drm_pids: HashSet::new(),
+            drm_fds: HashMap::new(),
             nvidia_smi: which("nvidia-smi"),
         }
     }
 
     pub fn sample(&mut self, dt: f64, tick: u64, pids: impl Iterator<Item = i32>) -> GpuUsage {
-        let full_scan = tick % 5 == 1;
+        let full_scan = tick % 10 == 1;
         let candidates: Vec<i32> = if full_scan { pids.collect() } else { self.drm_pids.iter().copied().collect() };
         let mut cur: HashMap<(String, String, String), (u64, i32, u64)> = HashMap::new();
         let mut found = HashSet::new();
         let mut mem_by_pid: HashMap<i32, u64> = HashMap::new();
         let mut caps: HashMap<String, f64> = HashMap::new();
+        let mut next_fds: HashMap<i32, Vec<String>> = HashMap::new();
         for pid in candidates {
-            let Ok(fds) = fs::read_dir(format!("/proc/{pid}/fd")) else { continue };
+            let fds: Vec<String> = if full_scan {
+                let Ok(rd) = fs::read_dir(format!("/proc/{pid}/fd")) else { continue };
+                rd.flatten()
+                    .filter(|fd| fs::read_link(fd.path()).map(|t| t.to_string_lossy().starts_with("/dev/dri/")).unwrap_or(false))
+                    .map(|fd| fd.file_name().to_string_lossy().into_owned())
+                    .collect()
+            } else {
+                self.drm_fds.get(&pid).cloned().unwrap_or_default()
+            };
+            if fds.is_empty() {
+                continue;
+            }
+            next_fds.insert(pid, fds.clone());
             let mut seen_clients = HashSet::new();
-            for fd in fds.flatten() {
-                let Ok(target) = fs::read_link(fd.path()) else { continue };
-                if !target.to_string_lossy().starts_with("/dev/dri/") {
-                    continue;
-                }
+            for fd in fds {
                 found.insert(pid);
-                let Some(info) = read(format!("/proc/{pid}/fdinfo/{}", fd.file_name().to_string_lossy())) else { continue };
+                let Some(info) = read(format!("/proc/{pid}/fdinfo/{fd}")) else { continue };
                 let mut client = String::new();
                 let mut pdev = String::new();
                 let mut engines = vec![];
@@ -129,6 +141,9 @@ impl GpuSampler {
         }
         if full_scan {
             self.drm_pids = found;
+            self.drm_fds = next_fds;
+        } else {
+            self.drm_fds.retain(|p, _| next_fds.contains_key(p));
         }
         let span = dt * 1e9;
         let mut per_pid_engine: HashMap<(i32, String), f64> = HashMap::new();

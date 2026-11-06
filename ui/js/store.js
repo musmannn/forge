@@ -109,7 +109,36 @@ export function cpuOf(p) {
   return store.settings.cpuMode === "core" && store.snap ? p.cpu * store.snap.ncpu : p.cpu;
 }
 
+// Forge sends a process's unchanging fields once; later samples leave them out.
+const STATIC = ["cmd", "exe", "user", "app", "app_id", "icon", "container", "unit"];
+const statics = new Map();
+let onMissing = null;
+export function onMissingStatics(fn) { onMissing = fn; }
+
+function mergeStatics(procs) {
+  let missing = false;
+  const live = new Set();
+  for (const p of procs) {
+    const k = `${p.pid}:${p.start_s}`;
+    live.add(k);
+    if (p.full) {
+      const st = {};
+      for (const f of STATIC) st[f] = p[f] ?? null;
+      st.cmd ||= ""; st.exe ||= ""; st.user ||= "";
+      statics.set(k, st);
+      Object.assign(p, st);
+    } else {
+      const st = statics.get(k);
+      if (st) Object.assign(p, st);
+      else { missing = true; Object.assign(p, { cmd: "", exe: "", user: String(p.uid) }); }
+    }
+  }
+  if (store.ticks % 20 === 0) for (const k of statics.keys()) if (!live.has(k)) statics.delete(k);
+  if (missing) onMissing?.();
+}
+
 export function ingest(snap) {
+  mergeStatics(snap.procs);
   store.prev = store.snap;
   store.snap = snap;
   store.ticks++;

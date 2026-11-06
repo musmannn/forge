@@ -23,9 +23,21 @@ export function colour(name) {
   return palette[name] || name;
 }
 
+// canvas sizes come from a ResizeObserver, so drawing never forces a layout
+const sizes = new WeakMap();
+const ro = new ResizeObserver((entries) => {
+  for (const e of entries) sizes.set(e.target, { w: e.contentRect.width, h: e.contentRect.height });
+});
+
 function fit(canvas) {
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth, h = canvas.clientHeight;
+  let sz = sizes.get(canvas);
+  if (!sz) {
+    ro.observe(canvas);
+    sz = { w: canvas.clientWidth, h: canvas.clientHeight };
+    sizes.set(canvas, sz);
+  }
+  const { w, h } = sz;
   if (!w || !h) return null;
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
