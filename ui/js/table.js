@@ -92,7 +92,7 @@ export class Table {
     const get = c.sortVal || ((r) => r[c.key]);
     const d = this.sort.dir;
     return rows.sort((a, b) => {
-      const x = get(a), y = get(b);
+      const x = get(a.data), y = get(b.data);
       if (typeof x === "string" || typeof y === "string") return d * String(x ?? "").localeCompare(String(y ?? ""), undefined, { numeric: true, sensitivity: "base" });
       return d * ((x ?? -Infinity) - (y ?? -Infinity));
     });

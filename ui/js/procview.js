@@ -76,7 +76,7 @@ export function columns(opts = {}) {
       groupVal: (r) => f.bytes(r.sum?.mem ?? 0),
     },
     {
-      key: "disk", label: "Disk", width: "100px", num: true,
+      key: "disk", label: "Disk", width: "116px", num: true,
       render: (p) => (p.read_bps + p.write_bps > 0 ? f.rate(p.read_bps + p.write_bps) : "0\u00a0B/s"),
       sortVal: (p) => p.read_bps + p.write_bps,
       heat: (p) => (p.read_bps + p.write_bps) / (40 * 1024 * 1024),

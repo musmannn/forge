@@ -23,7 +23,7 @@ function next() {
   s.mem.in_use = walk(s.mem.in_use, 6e7, 3e9, s.mem.total * 0.8);
   for (const p of s.procs) {
     if (p.kind === "kernel") continue;
-    p.cpu = Math.max(0, walk(p.cpu * 1.5, 1.2, 0, 30));
+    p.cpu = Math.max(0, fx.snapshot.procs.find((q) => q.pid === p.pid)?.cpu * (0.6 + Math.random() * 0.8) || 0);
   }
   for (const n of s.net) if (!n.virtual_if) { n.rx_bps = Math.abs(walk(0, 4e6, 0, 4e6)); n.tx_bps = Math.abs(walk(0, 6e5, 0, 6e5)); }
   for (const d of s.disks) { d.read_bps = Math.abs(walk(0, 2e7, 0, 2e7)); d.write_bps = Math.abs(walk(0, 8e6, 0, 8e6)); d.active_pct = Math.min(100, (d.read_bps + d.write_bps) / 3e5); }
