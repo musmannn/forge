@@ -360,7 +360,37 @@ async function start() {
   if (!isTauri) document.documentElement.dataset.preview = "true";
 }
 
-start().catch((e) => {
+// errors reach the terminal Forge was started from
+const report = (m) => { if (isTauri) invoke("log_js", { msg: String(m) }).catch(() => {}); };
+window.addEventListener("error", (e) => report(`${e.message} at ${e.filename}:${e.lineno}`));
+window.addEventListener("unhandledrejection", (e) => report(`unhandled: ${e.reason?.stack || e.reason}`));
+
+// FORGE_SELFTEST=1 walks every page on live data, then exits with the error count
+async function selftest() {
+  if (!isTauri || !(await invoke("selftest"))) return;
+  let errors = 0;
+  const orig = console.error;
+  console.error = (...a) => { errors++; report(a.join(" ")); orig(...a); };
+  window.addEventListener("error", () => errors++);
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  await wait(2500);
+  for (const [id] of PAGES) {
+    go(id);
+    await wait(2200);
+    report(`page ${id}: ${document.querySelectorAll(".vt-row").length} rows, ${pageEl.textContent.length} chars`);
+  }
+  const top = store.snap.procs.slice().sort((a, b) => b.cpu - a.cpu)[0];
+  openDrawer(top.pid);
+  await wait(2000);
+  for (const t of document.querySelectorAll(".drawer .tab")) { t.click(); await wait(400); }
+  report(`drawer for ${top.name}: ${document.querySelector(".drawer").textContent.length} chars`);
+  closeDrawer();
+  compact(true); await wait(1500); compact(false); await wait(800);
+  report(`selftest finished, ${errors} errors`);
+  invoke("quit", { code: errors ? 1 : 0 });
+}
+
+start().then(selftest).catch((e) => {
   const p = document.getElementById("page");
   if (p) p.replaceChildren(h("div", { class: "state state--error" }, h("h3", null, "Forge could not start"), h("p", null, String(e))));
 });

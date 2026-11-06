@@ -250,6 +250,21 @@ fn export_snapshot(s: tauri::State<'_, AppState>, format: String) -> R<String> {
 }
 
 #[tauri::command]
+fn selftest() -> bool {
+    std::env::var_os("FORGE_SELFTEST").is_some()
+}
+
+#[tauri::command]
+fn log_js(msg: String) {
+    eprintln!("[ui] {msg}");
+}
+
+#[tauri::command]
+fn quit(app: tauri::AppHandle, code: i32) {
+    app.exit(code);
+}
+
+#[tauri::command]
 fn set_always_on_top(window: WebviewWindow, on: bool) -> R<()> {
     window.set_always_on_top(on).map_err(|e| e.to_string())
 }
@@ -354,7 +369,10 @@ fn main() {
             notify,
             export_snapshot,
             set_always_on_top,
-            set_compact
+            set_compact,
+            selftest,
+            log_js,
+            quit
         ])
         .build(tauri::generate_context!())
         .expect("failed to start Forge")

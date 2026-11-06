@@ -7,7 +7,7 @@ import { h, icon, copyText } from "./ui.js";
 import { trace } from "./chart.js";
 import * as f from "./fmt.js";
 import { appIcon } from "./procview.js";
-import { endTask, suspendToggle, priorityDialog, affinityDialog, signalDialog, processMenu } from "./procactions.js";
+import { endTask, suspendToggle, priorityDialog, signalDialog, processMenu } from "./procactions.js";
 
 let el, pid = null, tab = "general", details = null, canvas, facts, body, conns = null, prevFocus;
 
@@ -90,9 +90,8 @@ function render() {
       h("button", { type: "button", class: "btn", onclick: () => proc() && endTask(proc()) }, "End task"),
       h("button", { type: "button", class: "btn", onclick: () => proc() && suspendToggle(proc()) }, p.state === "T" ? "Resume" : "Suspend"),
       h("button", { type: "button", class: "btn", onclick: () => proc() && priorityDialog(proc()) }, "Priority"),
-      h("button", { type: "button", class: "btn", onclick: () => proc() && affinityDialog(proc()) }, "Affinity"),
       h("button", { type: "button", class: "btn", onclick: () => proc() && signalDialog(proc()) }, "Signal"),
-      h("button", { type: "button", class: "btn btn--quiet btn--icon", "aria-label": "More actions", onclick: (e) => { const b = e.currentTarget.getBoundingClientRect(); proc() && processMenu(proc(), b.left - 180, b.top - 360, e.currentTarget); } }, icon("more"))),
+      h("button", { type: "button", class: "btn btn--quiet btn--icon", "aria-label": "More actions", onclick: (e) => { const b = e.currentTarget.getBoundingClientRect(); proc() && processMenu(proc(), b.right - 220, b.top - 440, e.currentTarget); } }, icon("more"))),
   );
   update();
   renderTab();

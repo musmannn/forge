@@ -38,7 +38,7 @@ export default function processesPage() {
         label: "Processes",
         sort: { key: "cpu", dir: -1 },
         empty: emptyFilter,
-        onSelect: (r) => { store.selected = r.agg ? r.data.root.pid : r.data.pid; endBtn.disabled = false; },
+        onSelect: (r) => { if (r.group) { endBtn.disabled = true; return; } store.selected = r.agg ? r.data.root.pid : r.data.pid; endBtn.disabled = false; },
         onActivate: (r) => openDrawer(r.agg ? r.data.root.pid : r.data.pid),
         onToggle: (r) => {
           if (r.group) { const k = `!${r.key.slice(4)}`; expanded.has(k) ? expanded.delete(k) : expanded.add(k); }
