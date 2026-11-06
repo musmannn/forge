@@ -22,6 +22,7 @@ struct AppState {
     kick: Arc<AtomicBool>,
     kernel: Arc<AtomicBool>,
     resync: Arc<AtomicBool>,
+    channel: Arc<Mutex<Option<tauri::ipc::Channel<Snapshot>>>>,
 }
 
 type R<T> = Result<T, String>;
@@ -31,6 +32,14 @@ fn get_snapshot(s: tauri::State<AppState>) -> Option<Snapshot> {
     // the UI is starting over: send everything again on the next tick too
     s.resync.store(true, Ordering::Relaxed);
     s.last.lock().unwrap().as_ref().map(|a| (**a).clone())
+}
+
+/// The UI hands over a channel; every sample after this goes down it.
+#[tauri::command]
+fn subscribe(s: tauri::State<AppState>, on_snapshot: tauri::ipc::Channel<Snapshot>) {
+    s.resync.store(true, Ordering::Relaxed);
+    *s.channel.lock().unwrap() = Some(on_snapshot);
+    s.kick.store(true, Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -265,6 +274,11 @@ fn selftest() -> bool {
 }
 
 #[tauri::command]
+fn start_page() -> Option<String> {
+    std::env::var("FORGE_PAGE").ok()
+}
+
+#[tauri::command]
 fn log_js(msg: String) {
     eprintln!("[ui] {msg}");
 }
@@ -316,9 +330,10 @@ fn main() {
         kick: Arc::new(AtomicBool::new(false)),
         kernel: Arc::new(AtomicBool::new(false)),
         resync: Arc::new(AtomicBool::new(false)),
+        channel: Arc::new(Mutex::new(None)),
     };
     let (last, interval, paused, kick) = (state.last.clone(), state.interval.clone(), state.paused.clone(), state.kick.clone());
-    let (kernel, resync) = (state.kernel.clone(), state.resync.clone());
+    let (kernel, resync, channel) = (state.kernel.clone(), state.resync.clone(), state.channel.clone());
     let saver = sampler.clone();
 
     tauri::Builder::default()
@@ -351,7 +366,17 @@ fn main() {
                             next_sent.insert(key);
                         }
                         sent = next_sent;
-                        let _ = handle.emit("snapshot", &wire);
+                        let ch = channel.lock().unwrap().clone();
+                        match ch {
+                            Some(ch) => {
+                                if ch.send(wire).is_err() {
+                                    *channel.lock().unwrap() = None;
+                                }
+                            }
+                            None => {
+                                let _ = handle.emit("snapshot", &wire);
+                            }
+                        }
                         *last.lock().unwrap() = Some(snap);
                     }
                     let mut waited = 0;
@@ -368,6 +393,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_snapshot,
+            subscribe,
             set_kernel_threads,
             set_interval,
             set_paused,
@@ -405,6 +431,7 @@ fn main() {
             set_always_on_top,
             set_compact,
             selftest,
+            start_page,
             log_js,
             quit
         ])

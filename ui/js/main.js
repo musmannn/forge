@@ -360,6 +360,7 @@ async function start() {
   await listen("snapshot", (s) => ingest(s));
   invoke("set_interval", { ms: store.settings.interval }).catch(() => {});
   if (store.settings.onTop) invoke("set_always_on_top", { on: true }).catch(() => {});
+  if (isTauri) { const sp = await invoke("start_page").catch(() => null); if (sp) history.replaceState(null, "", `#${sp}`); }
   route();
   if (!isTauri) document.documentElement.dataset.preview = "true";
 }

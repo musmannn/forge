@@ -3,7 +3,7 @@
 
 import { invoke, errText } from "./api.js";
 import { store, procRing, ring, windowSamples, cpuOf } from "./store.js";
-import { h, icon, copyText } from "./ui.js";
+import { patch, h, icon, copyText } from "./ui.js";
 import { trace } from "./chart.js";
 import * as f from "./fmt.js";
 import { appIcon } from "./procview.js";
@@ -107,11 +107,11 @@ export function update() {
   }
   if (!facts) return;
   if (!p) {
-    facts.replaceChildren(h("div", null, h("dt", null, "State"), h("dd", { class: "text" }, "Exited")));
+    patch(facts, h("div", null, h("dt", null, "State"), h("dd", { class: "text" }, "Exited")));
     return;
   }
   const row = (k, v, text) => h("div", null, h("dt", null, k), h("dd", { class: text ? "text" : null, title: String(v) }, v));
-  facts.replaceChildren(
+  patch(facts, 
     row("CPU", f.pct(cpuOf(p), 1)),
     row("Memory", f.bytes(p.mem_private || p.mem)),
     row("Resident", f.bytes(p.mem)),

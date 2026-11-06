@@ -2,14 +2,14 @@ import { invoke, errText } from "../api.js";
 import { store } from "../store.js";
 import { h, confirmDialog } from "../ui.js";
 import { Table } from "../table.js";
-import { appIcon } from "../procview.js";
+import { iconImg } from "../procview.js";
 import * as f from "../fmt.js";
 
 export default function appHistoryPage() {
   let table, sinceEl, data = null, err = null, wrap;
 
   const cols = [
-    { key: "name", label: "Name", width: "minmax(240px, 2fr)", render: (a) => { const s = appIcon(a.icon); return [s ? h("img", { class: "ico", src: s, alt: "", width: "18", height: "18" }) : h("span", { class: "ico-blank", "aria-hidden": "true" }), h("span", { class: "t" }, a.name)]; }, sortVal: (a) => a.name.toLowerCase() },
+    { key: "name", label: "Name", width: "minmax(240px, 2fr)", render: (a) => [iconImg(a.icon), h("span", { class: "t" }, a.name)], sortVal: (a) => a.name.toLowerCase() },
     { key: "kind", label: "Kind", width: "120px", render: (a) => ({ app: "App", background: "Background", system: "System" }[a.kind] || a.kind) },
     { key: "cpu_s", label: "CPU time", width: "110px", num: true, render: (a) => f.cpuTime(a.cpu_s), heat: (a) => a.cpu_s / (top("cpu_s") || 1) },
     { key: "read", label: "Disk read", width: "110px", num: true, render: (a) => f.bytes(a.read), heat: (a) => a.read / (top("read") || 1) },

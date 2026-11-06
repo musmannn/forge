@@ -241,6 +241,15 @@ export function copyText(t) {
   );
 }
 
+/** replaceChildren, but only when the new content differs from what is shown */
+export function patch(el, ...kids) {
+  const flat = kids.flat(Infinity).filter((k) => k != null && k !== false);
+  const sig = flat.map((k) => (k instanceof Element ? k.outerHTML : k instanceof Node ? k.textContent : String(k))).join("\u0001");
+  if (el._psig === sig) return;
+  el._psig = sig;
+  el.replaceChildren(...flat);
+}
+
 export function debounce(fn, ms) {
   let t;
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };

@@ -1,7 +1,7 @@
 // The btop screen: everything at once, the core strip on top.
 
 import { store, ring, procRing, windowSamples, cpuOf } from "../store.js";
-import { h, icon } from "../ui.js";
+import { patch, h, icon } from "../ui.js";
 import { trace, bars, niceMax } from "../chart.js";
 import { Table } from "../table.js";
 import { nameCell, treeRows, flatRows, visibleProcs, emptyFilter } from "../procview.js";
@@ -153,8 +153,8 @@ export default function overviewPage() {
     const c = s.cpu;
 
     // processor
-    refs.cpuReading.replaceChildren(f.pct(c.total), h("small", null, "in use"));
-    refs.cpuLegend.replaceChildren(
+    patch(refs.cpuReading, f.pct(c.total), h("small", null, "in use"));
+    patch(refs.cpuLegend, 
       h("span", null, h("i", { class: "swatch" }), "User ", h("b", null, f.pct(c.user))),
       h("span", null, h("i", { class: "swatch swatch--2" }), "System ", h("b", null, f.pct(c.system + c.irq))),
       h("span", null, "Waiting on IO ", h("b", null, f.pct(c.iowait, 1))),
@@ -167,7 +167,7 @@ export default function overviewPage() {
     const sel = store.selected != null && store.procIndex.has(store.selected) ? procRing(store.selected).cpu.last(n) : null;
     if (sel) series.push({ data: sel, colour: "accent", fill: false, width: 2 });
     trace(refs.cpuCanvas, series, { samples: n, max: 100 });
-    refs.cpuFacts.replaceChildren(
+    patch(refs.cpuFacts, 
       ...[
         ["Speed", f.mhz(c.avg_freq_mhz)],
         ["Temperature", f.temp(c.temp_c) || "Not reported"],
@@ -183,20 +183,20 @@ export default function overviewPage() {
     const picked = store.selected != null ? store.procIndex.get(store.selected) : null;
     bars(refs.coreCanvas, c.cores, { max: 100, gap: 4, peaks: c.cores.map((_, i) => ring(`core.${i}`).max(peakN)), mark: picked ? picked.last_cpu : null });
     refs.coreNums.forEach((el, i) => (el.textContent = f.pct(c.cores[i] ?? 0)));
-    refs.coreTitle.replaceChildren(...(c.core_temps.length ? ["Core temperatures ", h("span", { class: "num" }, `${c.core_temps.map((t) => Math.round(t)).join(" ")} °C`)] : [`${c.cores.length} logical processors`]));
+    patch(refs.coreTitle, ...(c.core_temps.length ? ["Core temperatures ", h("span", { class: "num" }, `${c.core_temps.map((t) => Math.round(t)).join(" ")} °C`)] : [`${c.cores.length} logical processors`]));
 
     // memory
     const m = s.mem;
-    refs.memReading.replaceChildren(f.bytes(m.in_use), h("small", null, `of ${f.bytes(m.total)}`));
+    patch(refs.memReading, f.bytes(m.in_use), h("small", null, `of ${f.bytes(m.total)}`));
     refs.memMeta.textContent = `${f.pct((m.in_use / m.total) * 100)} in use`;
     trace(refs.memCanvas, [{ data: ring("mem").last(n), colour: "cool" }, { data: ring("swap").last(n), colour: "muted", fill: false, width: 1 }], { samples: n, max: 100, grid: 1 });
-    refs.memBar.replaceChildren(
+    patch(refs.memBar, 
       h("i", { class: "s1", style: { "--v": m.in_use }, title: `In use ${f.bytes(m.in_use)}` }),
       h("i", { class: "s2", style: { "--v": m.modified }, title: `Modified ${f.bytes(m.modified)}` }),
       h("i", { class: "s3", style: { "--v": m.standby }, title: `Cached ${f.bytes(m.standby)}` }),
       h("i", { class: "s4", style: { "--v": m.free }, title: `Free ${f.bytes(m.free)}` }),
     );
-    refs.memRows.replaceChildren(
+    patch(refs.memRows, 
       memRow("In use", f.bytes(m.in_use), m.in_use / m.total, m.in_use / m.total > 0.9),
       memRow("Cached", f.bytes(m.standby + m.modified), (m.standby + m.modified) / m.total),
       memRow("Available", f.bytes(m.available), m.available / m.total),
@@ -207,14 +207,14 @@ export default function overviewPage() {
 
     // sensors
     const b = s.battery;
-    refs.batt.replaceChildren(
+    patch(refs.batt, 
       b ? h("div", { style: { display: "grid", gap: "var(--space-2xs)" } },
         h("div", { class: "reading reading--s" }, f.pct(b.pct), h("small", null, b.status === "Discharging" && b.secs_left ? `${f.duration(b.secs_left).slice(0, 5)} left` : b.status === "Charging" && b.secs_left ? `charging, full in ${f.duration(b.secs_left).slice(0, 5)}` : b.status.toLowerCase())),
         h("div", { class: "legend" }, b.power_w ? h("span", null, "Drawing ", h("b", null, `${b.power_w.toFixed(1)}\u00a0W`)) : null, b.health_pct ? h("span", null, "Health ", h("b", null, f.pct(b.health_pct))) : null, b.cycles ? h("span", null, "Cycles ", h("b", null, String(b.cycles))) : null))
         : h("p", { class: "muted" }, "No battery. Running on mains power."),
     );
     const temps = pickTemps(s.temps);
-    refs.sensorRows.replaceChildren(
+    patch(refs.sensorRows, 
       ...temps.map((t) => memRow(t.name, f.temp(t.c), t.c / (t.crit || 100), t.c >= (t.high || t.crit || 95) - 2)),
       ...s.fans.filter((x) => x.rpm > 0).map((x) => h("div", { class: "mini-row" }, h("span", { class: "lbl" }, x.label), h("span"), h("span", { class: "num" }, `${x.rpm} rpm`))),
       s.psi ? h("div", { class: "mini-row", title: "Share of the last 10 seconds that some task waited on this resource (pressure stall information)" }, h("span", { class: "lbl" }, "Stalled on"), h("span", { class: "wide" }, "Processor ", h("span", { class: "num" }, f.pct(s.psi.cpu_some, 1)), "  Memory ", h("span", { class: "num" }, f.pct(s.psi.mem_some, 1)), "  Disk ", h("span", { class: "num" }, f.pct(s.psi.io_some, 1)))) : null,
@@ -224,28 +224,28 @@ export default function overviewPage() {
     const rx = ring("net.rx"), tx = ring("net.tx");
     const nmax = niceMax(Math.max(rx.max(n), tx.max(n)));
     trace(refs.netCanvas, [{ data: rx.last(n), colour: "cool" }, { data: tx.last(n), colour: "cool", mirror: true, alpha: 0.6 }], { samples: n, max: nmax, mirror: true, grid: 0 });
-    refs.netLegend.replaceChildren(h("span", null, "Down ", h("b", null, f.rate(rx.latest))), h("span", null, "Up ", h("b", null, f.rate(tx.latest))), h("span", null, "Scale ", h("b", null, f.rate(nmax))));
+    patch(refs.netLegend, h("span", null, "Down ", h("b", null, f.rate(rx.latest))), h("span", null, "Up ", h("b", null, f.rate(tx.latest))), h("span", null, "Scale ", h("b", null, f.rate(nmax))));
     const phys = s.net.filter((x) => !x.virtual_if && x.name !== "lo");
     const main = phys.slice().sort((a, b2) => b2.rx_total - a.rx_total)[0];
     refs.netMeta.textContent = main ? main.name : "";
-    refs.netFacts.replaceChildren(...(main ? [["Received", f.bytes(main.rx_total)], ["Sent", f.bytes(main.tx_total)]] : []).map(([k, v]) => h("div", null, h("dt", null, k), h("dd", null, v))));
+    patch(refs.netFacts, ...(main ? [["Received", f.bytes(main.rx_total)], ["Sent", f.bytes(main.tx_total)]] : []).map(([k, v]) => h("div", null, h("dt", null, k), h("dd", null, v))));
 
     // storage
     const dr = ring("disk.r"), dw = ring("disk.w");
     const dmax = niceMax(Math.max(dr.max(n), dw.max(n)));
     trace(refs.diskCanvas, [{ data: dr.last(n), colour: "cool" }, { data: dw.last(n), colour: "cool", mirror: true, alpha: 0.6 }], { samples: n, max: dmax, mirror: true, grid: 0 });
-    refs.diskLegend.replaceChildren(h("span", null, "Read ", h("b", null, f.rate(dr.latest))), h("span", null, "Write ", h("b", null, f.rate(dw.latest))), h("span", null, "Busy ", h("b", null, f.pct(Math.max(0, ...s.disks.map((d) => d.active_pct))))));
-    refs.mounts.replaceChildren(...s.mounts.map((mt) => memRow(mt.mount, `${f.bytes(mt.avail)} free`, mt.used / mt.total, mt.used / mt.total > 0.92)));
+    patch(refs.diskLegend, h("span", null, "Read ", h("b", null, f.rate(dr.latest))), h("span", null, "Write ", h("b", null, f.rate(dw.latest))), h("span", null, "Busy ", h("b", null, f.pct(Math.max(0, ...s.disks.map((d) => d.active_pct))))));
+    patch(refs.mounts, ...s.mounts.map((mt) => memRow(mt.mount, `${f.bytes(mt.avail)} free`, mt.used / mt.total, mt.used / mt.total > 0.92)));
 
     // graphics
     const g = s.gpus[0];
     if (g) {
       refs.gpuMeta.textContent = g.name;
       trace(refs.gpuCanvas, [{ data: ring("gpu.0").last(n), colour: "cool" }], { samples: n, max: 100, grid: 1 });
-      refs.gpuReading.replaceChildren(h("span", null, "Busy ", h("b", null, g.busy_pct != null ? f.pct(g.busy_pct) : "Not reported")), g.freq_mhz ? h("span", null, "Clock ", h("b", null, f.mhz(g.freq_mhz))) : h("span", null, "Clock ", h("b", null, "idle")), g.temp_c ? h("span", null, h("b", null, f.temp(g.temp_c))) : null);
-      refs.gpuRows.replaceChildren(...g.engines.map(([e, v]) => memRow(e, f.pct(v), v / 100)), g.vram_total ? memRow("Video memory", f.bytes(g.vram_used), g.vram_used / g.vram_total) : null);
+      patch(refs.gpuReading, h("span", null, "Busy ", h("b", null, g.busy_pct != null ? f.pct(g.busy_pct) : "Not reported")), g.freq_mhz ? h("span", null, "Clock ", h("b", null, f.mhz(g.freq_mhz))) : h("span", null, "Clock ", h("b", null, "idle")), g.temp_c ? h("span", null, h("b", null, f.temp(g.temp_c))) : null);
+      patch(refs.gpuRows, ...g.engines.map(([e, v]) => memRow(e, f.pct(v), v / 100)), g.vram_total ? memRow("Video memory", f.bytes(g.vram_used), g.vram_used / g.vram_total) : null);
     } else {
-      refs.gpuReading.replaceChildren(h("span", null, "No graphics device reported by the kernel."));
+      patch(refs.gpuReading, h("span", null, "No graphics device reported by the kernel."));
     }
 
     procRows();

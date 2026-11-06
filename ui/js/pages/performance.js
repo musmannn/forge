@@ -1,5 +1,5 @@
 import { store, ring, saveSettings, windowSamples } from "../store.js";
-import { h } from "../ui.js";
+import { patch, h } from "../ui.js";
 import { trace, niceMax } from "../chart.js";
 import { invoke } from "../api.js";
 import * as f from "../fmt.js";
@@ -178,18 +178,18 @@ export default function performancePage() {
         trace(view.pc, [{ data: avg(info.perf_cores), colour: "cool" }], { samples: n, max: 100 });
         trace(view.ec, [{ data: avg(info.eff_cores), colour: "cool" }], { samples: n, max: 100 });
       }
-      view.live.replaceChildren(fact("Use", f.pct(c.total)), fact("Speed", f.mhz(c.avg_freq_mhz)), fact("Processes", f.int(c.procs)), fact("Threads", f.int(c.threads)), fact("Open files", f.int(c.fds)), fact("Up time", f.duration(c.uptime_s)), fact("Temperature", f.temp(c.temp_c) || "Not reported"), fact("Load average", c.load.map((x) => x.toFixed(2)).join(" ")));
+      patch(view.live, fact("Use", f.pct(c.total)), fact("Speed", f.mhz(c.avg_freq_mhz)), fact("Processes", f.int(c.procs)), fact("Threads", f.int(c.threads)), fact("Open files", f.int(c.fds)), fact("Up time", f.duration(c.uptime_s)), fact("Temperature", f.temp(c.temp_c) || "Not reported"), fact("Load average", c.load.map((x) => x.toFixed(2)).join(" ")));
     } else if (current === "mem") {
       const m = s.mem;
       trace(view.big, [{ data: ring("mem").last(n), colour: "cool" }], { samples: n, max: 100, grid: 3 });
-      view.bar.replaceChildren(h("i", { class: "s1", style: { "--v": m.in_use } }), h("i", { class: "s2", style: { "--v": m.modified } }), h("i", { class: "s3", style: { "--v": m.standby } }), h("i", { class: "s4", style: { "--v": m.free } }));
-      view.barLegend.replaceChildren(
+      patch(view.bar, h("i", { class: "s1", style: { "--v": m.in_use } }), h("i", { class: "s2", style: { "--v": m.modified } }), h("i", { class: "s3", style: { "--v": m.standby } }), h("i", { class: "s4", style: { "--v": m.free } }));
+      patch(view.barLegend, 
         h("span", null, h("i", { class: "swatch" }), "In use ", h("b", null, f.bytes(m.in_use))),
         h("span", null, h("i", { class: "swatch swatch--2" }), "Modified ", h("b", null, f.bytes(m.modified))),
         h("span", null, h("i", { class: "swatch swatch--muted" }), "Cached ", h("b", null, f.bytes(m.standby))),
         h("span", null, "Free ", h("b", null, f.bytes(m.free))));
-      view.live.replaceChildren(fact("In use", f.bytes(m.in_use)), fact("Available", f.bytes(m.available)), fact("Committed", `${f.bytes(m.committed)} / ${f.bytes(m.commit_limit)}`), fact("Cached", f.bytes(m.cached)), fact("Swap", m.swap_total ? `${f.bytes(m.swap_used)} / ${f.bytes(m.swap_total)}` : "None"));
-      view.more.replaceChildren(fact("Buffers", f.bytes(m.buffers)), fact("Shared", f.bytes(m.shared)), fact("Kernel slab", f.bytes(m.slab)), fact("Page tables", f.bytes(m.page_tables)), fact("Kernel stacks", f.bytes(m.kernel_stack)), fact("Swap cached", f.bytes(m.swap_cached)), m.zswap ? fact("Compressed in zswap", f.bytes(m.zswap)) : null, m.hugepages_total ? fact("Huge pages", f.bytes(m.hugepages_total)) : null, s.psi ? fact("Stalled on memory", f.pct(s.psi.mem_some, 1)) : null);
+      patch(view.live, fact("In use", f.bytes(m.in_use)), fact("Available", f.bytes(m.available)), fact("Committed", `${f.bytes(m.committed)} / ${f.bytes(m.commit_limit)}`), fact("Cached", f.bytes(m.cached)), fact("Swap", m.swap_total ? `${f.bytes(m.swap_used)} / ${f.bytes(m.swap_total)}` : "None"));
+      patch(view.more, fact("Buffers", f.bytes(m.buffers)), fact("Shared", f.bytes(m.shared)), fact("Kernel slab", f.bytes(m.slab)), fact("Page tables", f.bytes(m.page_tables)), fact("Kernel stacks", f.bytes(m.kernel_stack)), fact("Swap cached", f.bytes(m.swap_cached)), m.zswap ? fact("Compressed in zswap", f.bytes(m.zswap)) : null, m.hugepages_total ? fact("Huge pages", f.bytes(m.hugepages_total)) : null, s.psi ? fact("Stalled on memory", f.pct(s.psi.mem_some, 1)) : null);
     } else if (current.startsWith("disk:")) {
       const name = current.slice(5);
       const d = s.disks.find((x) => x.name === name);
@@ -200,9 +200,9 @@ export default function performancePage() {
       view.bmax.textContent = f.rate(mx);
       trace(view.b, [{ data: r.last(n), colour: "cool" }, { data: w.last(n), colour: "cool", mirror: true, alpha: 0.6 }], { samples: n, max: mx, mirror: true, grid: 0 });
       const mounts = s.mounts.filter((m) => m.disk === name);
-      view.live.replaceChildren(fact("Active time", f.pct(d.active_pct)), fact("Average response", `${d.avg_ms.toFixed(1)}\u00a0ms`), fact("Read speed", f.rate(d.read_bps)), fact("Write speed", f.rate(d.write_bps)));
-      view.more.replaceChildren(fact("Capacity", f.bytes(d.size)), fact("Formatted", f.bytes(mounts.reduce((a, m) => a + m.total, 0))), fact("System disk", mounts.some((m) => m.mount === "/") ? "Yes" : "No", true), fact("Type", d.rotational ? "Hard disk" : "Solid state", true), fact("Removable", d.removable ? "Yes" : "No", true), fact("In the queue", String(d.queue)), fact("Read since boot", f.bytes(d.read_total)), fact("Written since boot", f.bytes(d.write_total)), sys ? fact("Connection", (sys.disks.find((x) => x[0] === name) || [])[1] || "", true) : null);
-      view.mounts.replaceChildren(...(mounts.length ? mounts.map((m) => h("li", null, h("span", null, `${m.mount} `, h("span", { class: "muted" }, `${m.fs}, ${m.dev}`)), h("span", { class: "measured" }, `${f.bytes(m.used)} used of ${f.bytes(m.total)}`))) : [h("li", null, h("span", { class: "muted" }, "No mounted volumes."), h("span"))]));
+      patch(view.live, fact("Active time", f.pct(d.active_pct)), fact("Average response", `${d.avg_ms.toFixed(1)}\u00a0ms`), fact("Read speed", f.rate(d.read_bps)), fact("Write speed", f.rate(d.write_bps)));
+      patch(view.more, fact("Capacity", f.bytes(d.size)), fact("Formatted", f.bytes(mounts.reduce((a, m) => a + m.total, 0))), fact("System disk", mounts.some((m) => m.mount === "/") ? "Yes" : "No", true), fact("Type", d.rotational ? "Hard disk" : "Solid state", true), fact("Removable", d.removable ? "Yes" : "No", true), fact("In the queue", String(d.queue)), fact("Read since boot", f.bytes(d.read_total)), fact("Written since boot", f.bytes(d.write_total)), sys ? fact("Connection", (sys.disks.find((x) => x[0] === name) || [])[1] || "", true) : null);
+      patch(view.mounts, ...(mounts.length ? mounts.map((m) => h("li", null, h("span", null, `${m.mount} `, h("span", { class: "muted" }, `${m.fs}, ${m.dev}`)), h("span", { class: "measured" }, `${f.bytes(m.used)} used of ${f.bytes(m.total)}`))) : [h("li", null, h("span", { class: "muted" }, "No mounted volumes."), h("span"))]));
     } else if (current.startsWith("net:")) {
       const name = current.slice(4);
       const x = s.net.find((y) => y.name === name);
@@ -211,8 +211,8 @@ export default function performancePage() {
       const mx = niceMax(Math.max(r.max(n), t.max(n)));
       view.max.textContent = f.bits(mx);
       trace(view.big, [{ data: r.last(n), colour: "cool" }, { data: t.last(n), colour: "cool", mirror: true, alpha: 0.6 }], { samples: n, max: mx, mirror: true, grid: 0 });
-      view.live.replaceChildren(fact("Receive", f.bits(x.rx_bps)), fact("Send", f.bits(x.tx_bps)), fact("Received", f.bytes(x.rx_total)), fact("Sent", f.bytes(x.tx_total)));
-      view.more.replaceChildren(fact("State", x.up ? "Connected" : "Down", true), fact("Link speed", x.speed_mbps ? `${x.speed_mbps}\u00a0Mbps` : "Not reported"), fact("Hardware address", x.mac), fact("Packets in", f.int(x.rx_packets)), fact("Packets out", f.int(x.tx_packets)), fact("Errors", f.int(x.errors)), fact("Dropped", f.int(x.drops)));
+      patch(view.live, fact("Receive", f.bits(x.rx_bps)), fact("Send", f.bits(x.tx_bps)), fact("Received", f.bytes(x.rx_total)), fact("Sent", f.bytes(x.tx_total)));
+      patch(view.more, fact("State", x.up ? "Connected" : "Down", true), fact("Link speed", x.speed_mbps ? `${x.speed_mbps}\u00a0Mbps` : "Not reported"), fact("Hardware address", x.mac), fact("Packets in", f.int(x.rx_packets)), fact("Packets out", f.int(x.tx_packets)), fact("Errors", f.int(x.errors)), fact("Dropped", f.int(x.drops)));
     } else if (current.startsWith("gpu:")) {
       const i = +current.slice(4);
       const g = s.gpus[i];
@@ -220,14 +220,14 @@ export default function performancePage() {
       trace(view.big, [{ data: ring(`gpu.${i}`).last(n), colour: "cool" }], { samples: n, max: 100, grid: 3 });
       view.engines.forEach(([e, cv]) => trace(cv, [{ data: ring(`gpu.${i}.${e}`).last(n), colour: "cool" }], { samples: n, max: 100, grid: 1 }));
       const using = s.procs.filter((p) => p.gpu != null && p.gpu > 0.05).sort((a, b) => b.gpu - a.gpu).slice(0, 3).map((p) => p.name).join(", ");
-      view.live.replaceChildren(fact("Busy", g.busy_pct != null ? f.pct(g.busy_pct) : "Not reported"), fact("Clock", g.freq_mhz ? f.mhz(g.freq_mhz) : "Idle"), g.vram_total ? fact("Video memory", `${f.bytes(g.vram_used)} / ${f.bytes(g.vram_total)}`) : fact("Video memory", "Shared with the system", true), fact("Temperature", f.temp(g.temp_c) || "Not reported"));
-      view.more.replaceChildren(fact("Driver", g.driver), fact("PCI slot", g.slot), fact("Maximum clock", f.mhz(g.max_freq_mhz)), g.power_w ? fact("Power", `${g.power_w.toFixed(1)}\u00a0W`) : null, fact("Busiest now", using || "Nothing measurable", true));
+      patch(view.live, fact("Busy", g.busy_pct != null ? f.pct(g.busy_pct) : "Not reported"), fact("Clock", g.freq_mhz ? f.mhz(g.freq_mhz) : "Idle"), g.vram_total ? fact("Video memory", `${f.bytes(g.vram_used)} / ${f.bytes(g.vram_total)}`) : fact("Video memory", "Shared with the system", true), fact("Temperature", f.temp(g.temp_c) || "Not reported"));
+      patch(view.more, fact("Driver", g.driver), fact("PCI slot", g.slot), fact("Maximum clock", f.mhz(g.max_freq_mhz)), g.power_w ? fact("Power", `${g.power_w.toFixed(1)}\u00a0W`) : null, fact("Busiest now", using || "Nothing measurable", true));
     } else if (current === "bat") {
       const b = s.battery;
       if (!b) return;
       trace(view.big, [{ data: ring("bat").last(n), colour: "cool" }], { samples: n, max: 100, grid: 3 });
-      view.live.replaceChildren(fact("Charge", f.pct(b.pct)), fact("Status", b.status, true), fact("Power draw", b.power_w ? `${b.power_w.toFixed(1)}\u00a0W` : "Not reported"), fact(b.status === "Charging" ? "Full in" : "Time left", b.secs_left ? f.duration(b.secs_left) : "Not reported"));
-      view.more.replaceChildren(fact("Health", b.health_pct ? f.pct(b.health_pct) : "Not reported"), fact("Charge cycles", b.cycles ?? "Not reported"), fact("Mains power", b.ac_online ? "Connected" : "Unplugged", true), ...(sys?.battery || []).map(([k, v]) => fact(k, v, true)));
+      patch(view.live, fact("Charge", f.pct(b.pct)), fact("Status", b.status, true), fact("Power draw", b.power_w ? `${b.power_w.toFixed(1)}\u00a0W` : "Not reported"), fact(b.status === "Charging" ? "Full in" : "Time left", b.secs_left ? f.duration(b.secs_left) : "Not reported"));
+      patch(view.more, fact("Health", b.health_pct ? f.pct(b.health_pct) : "Not reported"), fact("Charge cycles", b.cycles ?? "Not reported"), fact("Mains power", b.ac_online ? "Connected" : "Unplugged", true), ...(sys?.battery || []).map(([k, v]) => fact(k, v, true)));
     }
   }
 

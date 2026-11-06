@@ -2,7 +2,7 @@ import { invoke, errText } from "../api.js";
 import { store } from "../store.js";
 import { h, icon, menu, dialog, toast, confirmDialog, copyText } from "../ui.js";
 import { Table } from "../table.js";
-import { appIcon } from "../procview.js";
+import { iconImg } from "../procview.js";
 import * as f from "../fmt.js";
 
 export default function startupPage() {
@@ -24,7 +24,7 @@ export default function startupPage() {
   }
 
   const cols = [
-    { key: "name", label: "Name", width: "minmax(220px, 1.6fr)", render: (a) => { const s = appIcon(a.icon); return [s ? h("img", { class: "ico", src: s, alt: "", width: "18", height: "18" }) : h("span", { class: "ico-blank", "aria-hidden": "true" }), h("span", { class: "t" }, a.name)]; }, sortVal: (a) => a.name.toLowerCase(), titleOf: (a) => a.comment || a.name },
+    { key: "name", label: "Name", width: "minmax(220px, 1.6fr)", render: (a) => [iconImg(a.icon), h("span", { class: "t" }, a.name)], sortVal: (a) => a.name.toLowerCase(), titleOf: (a) => a.comment || a.name },
     { key: "status", label: "Status", width: "120px", render: (a) => h("span", { class: `chip ${a.enabled ? "chip--ok" : ""}` }, a.enabled ? "Enabled" : "Disabled"), sortVal: (a) => (a.enabled ? 1 : 0) },
     { key: "running", label: "Running now", width: "150px", num: true, render: (a) => { const r = running(a); return r.length ? f.bytes(r.reduce((s, p) => s + (p.mem_private || p.mem), 0)) : "No"; }, sortVal: (a) => running(a).reduce((s, p) => s + p.mem, 0) },
     { key: "exec", label: "Command", width: "minmax(220px, 2fr)", mono: true, render: (a) => h("span", { class: "t muted" }, a.exec), titleOf: (a) => a.exec },

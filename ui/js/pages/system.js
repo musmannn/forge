@@ -1,6 +1,6 @@
 import { invoke, errText } from "../api.js";
 import { store } from "../store.js";
-import { h, icon, copyText } from "../ui.js";
+import { patch, h, icon, copyText } from "../ui.js";
 import * as f from "../fmt.js";
 
 export default function systemPage() {
@@ -77,16 +77,16 @@ export default function systemPage() {
     const s = store.snap;
     if (!s || !live.sensors) return;
     live.uptime.textContent = f.duration(s.cpu.uptime_s);
-    live.sensors.replaceChildren(
+    patch(live.sensors, 
       ...s.temps.map((t) => h("li", null, h("span", null, `${t.chip} `, h("span", { class: "muted" }, t.label)), h("span", { class: "measured" }, `${f.temp(t.c)}${t.crit ? `, limit ${f.temp(t.crit)}` : ""}`))),
       ...s.fans.map((x) => h("li", null, h("span", null, `${x.chip} `, h("span", { class: "muted" }, x.label)), h("span", { class: "measured" }, `${x.rpm} rpm`))),
     );
-    if (!s.temps.length && !s.fans.length) live.sensors.replaceChildren(h("li", null, h("span", { class: "muted" }, "No sensors exposed through hwmon."), h("span")));
-    live.mounts.replaceChildren(...s.mounts.map((m) => h("li", null, h("span", null, `${m.mount} `, h("span", { class: "muted" }, `${m.fs} on ${m.disk}`)), h("span", { class: "measured" }, `${f.bytes(m.avail)} free of ${f.bytes(m.total)}`))));
+    if (!s.temps.length && !s.fans.length) patch(live.sensors, h("li", null, h("span", { class: "muted" }, "No sensors exposed through hwmon."), h("span")));
+    patch(live.mounts, ...s.mounts.map((m) => h("li", null, h("span", null, `${m.mount} `, h("span", { class: "muted" }, `${m.fs} on ${m.disk}`)), h("span", { class: "measured" }, `${f.bytes(m.avail)} free of ${f.bytes(m.total)}`))));
     if (s.psi) {
       const row = (l, v) => h("div", { class: "mini-row" }, h("span", { class: "lbl" }, l), h("div", { class: `meter${v > 10 ? " is-hot" : ""}` }, h("i", { style: { "--v": Math.min(1, v / 25).toFixed(3) } })), h("span", { class: "num" }, f.pct(v, 2)));
-      live.psi.replaceChildren(row("Processor", s.psi.cpu_some), row("Memory", s.psi.mem_some), row("Memory, all", s.psi.mem_full), row("Disk IO", s.psi.io_some), row("Disk IO, all", s.psi.io_full));
-    } else live.psi.replaceChildren(h("p", { class: "muted" }, "This kernel does not report pressure stall information."));
+      patch(live.psi, row("Processor", s.psi.cpu_some), row("Memory", s.psi.mem_some), row("Memory, all", s.psi.mem_full), row("Disk IO", s.psi.io_some), row("Disk IO, all", s.psi.io_full));
+    } else patch(live.psi, h("p", { class: "muted" }, "This kernel does not report pressure stall information."));
   }
 
   return {

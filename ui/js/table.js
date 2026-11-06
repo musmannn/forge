@@ -25,7 +25,10 @@ export class Table {
     this.head = h("div", { class: "vt-head", role: "row" });
     this.body = h("div", { class: "vt-body", role: "rowgroup" });
     this.el.append(this.head, this.body);
-    this.el.addEventListener("scroll", () => this.paint(), { passive: true });
+    // scroll offset and height are cached so painting never forces a layout
+    this._st = 0;
+    this._vh = 600;
+    this.el.addEventListener("scroll", () => { this._st = this.el.scrollTop; this.paint(); }, { passive: true });
     this.el.addEventListener("keydown", (e) => this.key(e));
     // arriving by keyboard with nothing selected: start on the first real row
     this.el.addEventListener("focus", () => {
@@ -33,7 +36,7 @@ export class Table {
       const first = this.rows.find((r) => !r.group);
       if (first) this.select(first.key);
     });
-    this.ro = new ResizeObserver(() => this.paint());
+    this.ro = new ResizeObserver((es) => { for (const e of es) this._vh = e.contentRect.height; this.paint(); });
     this.ro.observe(this.el);
     this.buildHead();
   }
@@ -87,7 +90,8 @@ export class Table {
     for (const c of this.cols) {
       if (!c.total) continue;
       const el = this.head.querySelector(`[data-tot="${c.key}"]`);
-      if (el) el.textContent = c.total();
+      const t = c.total();
+      if (el && el.textContent !== t) el.textContent = t;
     }
   }
 
@@ -107,8 +111,11 @@ export class Table {
   /** rows: [{ key, data, group?: {label, count, expanded}, depth, kids, expanded, dim }] */
   setRows(rows) {
     this.rows = rows;
-    this.el.setAttribute("aria-rowcount", String(rows.length));
-    this.body.style.height = rows.length * this.rowH + "px";
+    if (this._n !== rows.length) {
+      this._n = rows.length;
+      this.el.setAttribute("aria-rowcount", String(rows.length));
+      this.body.style.height = rows.length * this.rowH + "px";
+    }
     if (this.sel != null && !rows.some((r) => r.key === this.sel)) {
       // keep the selection if the row is only hidden by grouping
     }
@@ -135,8 +142,8 @@ export class Table {
   }
 
   paint() {
-    const st = this.el.scrollTop;
-    const vh = this.el.clientHeight;
+    const st = this._st;
+    const vh = this._vh;
     const first = Math.max(0, Math.floor(st / this.rowH) - 4);
     const last = Math.min(this.rows.length, Math.ceil((st + vh) / this.rowH) + 4);
     const tpl = this.template();
@@ -175,11 +182,11 @@ export class Table {
         this.body.append(el);
       }
       el._row = r;
-      el.className = `vt-row${r.group ? " is-group" : ""}${r.key === this.sel ? " is-sel" : ""}${r.dim ? " is-dim" : ""}`;
-      el.style.gridTemplateColumns = tpl;
-      el.style.transform = `translateY(${i * this.rowH}px)`;
-      el.setAttribute("aria-rowindex", String(i + 1));
-      el.setAttribute("aria-selected", r.key === this.sel ? "true" : "false");
+      // write only what changed; same-value writes still invalidate style
+      const cls = `vt-row${r.group ? " is-group" : ""}${r.key === this.sel ? " is-sel" : ""}${r.dim ? " is-dim" : ""}`;
+      if (el._cls !== cls) { el._cls = cls; el.className = cls; el.setAttribute("aria-selected", r.key === this.sel ? "true" : "false"); }
+      if (el._tpl !== tpl) { el._tpl = tpl; el.style.gridTemplateColumns = tpl; }
+      if (el._i !== i) { el._i = i; el.style.transform = `translateY(${i * this.rowH}px)`; el.setAttribute("aria-rowindex", String(i + 1)); }
       this.fill(el, r);
     }
     for (const [k, el] of this.pool) {
@@ -223,8 +230,9 @@ export class Table {
           if (r.kids) kids.push(h("button", { type: "button", class: "tw", tabindex: "-1", "aria-expanded": String(!!r.expanded), "aria-label": r.expanded ? "Collapse" : "Expand", onclick: () => this.onToggle?.(el._row) }, icon("chevron")));
           else if (r.depth != null) kids.push(h("span", { class: "tw-pad" }));
         }
-        if (v instanceof Node) kids.push(v);
-        else if (Array.isArray(v)) kids.push(...v.filter(Boolean));
+        const own = (n) => (n._shared ? n.cloneNode(true) : n);
+        if (v instanceof Node) kids.push(own(v));
+        else if (Array.isArray(v)) kids.push(...v.filter(Boolean).map(own));
         else kids.push(h("span", { class: "t" }, v ?? ""));
         td.replaceChildren(...kids);
       }
@@ -241,7 +249,7 @@ export class Table {
       }
       if (c.titleOf) {
         const t = c.titleOf(r.data) || "";
-        if (td.title !== t) td.title = t;
+        if (td._title !== t) { td._title = t; td.title = t; }
       }
     });
   }
@@ -298,6 +306,6 @@ export class Table {
 function signature(v) {
   if (v == null) return "";
   if (Array.isArray(v)) return v.filter(Boolean).map(signature).join("\u0001");
-  if (v instanceof Node) return `${v.nodeName}:${v.className || ""}:${v.textContent}:${v.getAttribute?.("src")?.length || 0}`;
+  if (v instanceof Node) return `${v.nodeName}:${v.className || ""}:${v.textContent}:${v._shared ? v.getAttribute?.("src")?.length || 0 : ""}`;
   return String(v);
 }

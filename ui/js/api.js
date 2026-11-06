@@ -16,6 +16,13 @@ export async function invoke(cmd, args = {}) {
 }
 
 export async function listen(event, cb) {
+  if (isTauri && event === "snapshot" && T.core.Channel) {
+    // a channel streams through the IPC protocol instead of evaluating script per sample
+    const ch = new T.core.Channel();
+    ch.onmessage = cb;
+    await T.core.invoke("subscribe", { onSnapshot: ch });
+    return () => {};
+  }
   if (isTauri) return T.event.listen(event, (e) => cb(e.payload));
   return (await demoMod()).listen(event, cb);
 }

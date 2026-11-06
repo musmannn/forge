@@ -18,9 +18,23 @@ export function appIcon(name) {
   return v || null;
 }
 
+// one template image per icon; tables clone it only when a cell really changes
+const imgs = new Map();
+let blank;
+export function iconImg(name) {
+  const src = appIcon(name);
+  if (!src) return (blank ||= Object.assign(h("span", { class: "ico-blank", "aria-hidden": "true" }), { _shared: true }));
+  let img = imgs.get(name);
+  if (!img) {
+    img = h("img", { class: "ico", src, alt: "", width: "18", height: "18" });
+    img._shared = true;
+    imgs.set(name, img);
+  }
+  return img;
+}
+
 export function nameCell(p, agg) {
-  const src = appIcon(p.icon);
-  const img = src ? h("img", { class: "ico", src, alt: "", width: "18", height: "18" }) : h("span", { class: "ico-blank", "aria-hidden": "true" });
+  const img = iconImg(p.icon);
   const label = agg ? p.name : p.kind === "app" && p.app && p.app !== p.name ? p.name : p.name;
   return [img, h("span", { class: "t" }, label, agg ? h("span", { class: "cnt" }, ` (${p.count})`) : null)];
 }
